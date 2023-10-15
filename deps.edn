@@ -1,0 +1,10 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/data.csv {:mvn/version "1.0.1"}
+        aerial.hanami/aerial.hanami {:mvn/version "0.18.0"}
+        io.github.nextjournal/clerk {:mvn/version "0.15.957"}
+        scicloj/tablecloth {:mvn/version "7.007"}
+        techascent/tech.ml.dataset {:mvn/version "7.005"}
+        org.clojure/data.json {:mvn/version "2.4.0"}
+        org.scicloj/clay {:mvn/version "2-alpha37"}
+        org.scicloj/kindly {:mvn/version "4-alpha4"}}}
