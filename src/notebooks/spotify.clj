@@ -12,7 +12,9 @@
    [nextjournal.clerk :as clerk]
    [tablecloth.api :as tc]))
 
+^{::clerk/visibility {:code :hide :result :hide}}
 (swap! hc/_defaults assoc :BACKGROUND "white")
+^{::clerk/visibility {:code :hide :result :hide}}
 (swap! hc/_defaults assoc :TOOLTIP
        [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
         {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
@@ -20,12 +22,18 @@
         {:field "artists_name" :type "nominal" :title "Artist Name"}
         {:field "released_year" :type "nominal" :title "Year Released"}])
        
+^{::clerk/visibility {:code :hide :result :hide}}
 (def input-file "resources/data/spotify_2023/spotify-2023.csv")
 
-(defn remove-brackets-name [name]
+
+^{::clerk/visibility {:result :hide}}
+(defn remove-brackets-name
+  "Helper function for cleaning the column named 'artist(s)_name'"
+  [name]
   (str/replace name #"([()])" ""))
 
 
+^{::clerk/visibility {:result :hide}}
 (def ds (-> (tc/dataset input-file {:key-fn (comp keyword remove-brackets-name)})
             (tc/order-by :streams [:desc]) ;; this and below to remove the missing/error 'stream' value
             (tc/drop-rows 0)
@@ -36,7 +44,12 @@
 
 (clerk/table
  (-> ds
-     tc/info))
+     (tc/info :basic)
+     (tc/rows :as-maps)))
+
+(clerk/table
+ (-> ds tc/info))
+
 
 ;; From the Kaggle page, the meanings of the columns are as follows:
 ;; - track_name: Name of the song
@@ -71,9 +84,9 @@
 
 
 ;; Initial data to look for, based on the info above:
-;; - Top Ten tracks Streamed
-;; - Top Ten Artists Streamed
-;; - Top Ten tracks/artists with releases in 2023
+;; - Top ten tracks streamed
+;; - Top ten artists streamed
+;; - Top ten tracks/artists with releases in 2023
 ;; - Streams by release year, month, date
 ;; - Average Streams by Artist Count
 ;; - Streams by BPM
@@ -83,6 +96,7 @@
 ;; ## Top 10s
 ;; ### Top 10 Most Streamed Tracks
 
+^{::clerk/visibility {:result :hide}}
 (defn format-num [num-str]
   (if (double? num-str)
     (format "%,.0f" num-str)
@@ -98,6 +112,7 @@
 
 ;; ### Top 10 Most Streamed Artists
 
+^{::clerk/visibility {:result :hide}}
 (defn grouped-streams-top-10 [data category]
   (-> data
       (tc/group-by category)
@@ -105,6 +120,7 @@
       (tc/order-by [:streams] [:desc])
       (tc/rename-columns {:$group-name category})))
 
+^{::clerk/visibility {:result :hide}}
 (def top-10-artists-by-streams
   (-> ds
       (grouped-streams-top-10 :artists_name)
@@ -123,9 +139,29 @@
   :Y "streams"
   :WIDTH 550))
 
+(clerk/vl
+ (hc/xform
+  ht/bar-chart
+  :DATA (-> ds
+            (tc/group-by :artists_name)
+            (tc/aggregate-columns [:track_name] #(count %))
+            (tc/order-by [:track_name] [:desc])
+            (tc/rename-columns {:track_name :number_of_tracks
+                                :$group-name :artist})
+            (tc/select-rows (range 26))
+            (tc/rows :as-maps))
+  :X "artist" :XTYPE "nominal" :XSORT :number_of_tracks
+  :Y "number_of_tracks"
+  :WIDTH "600"))
+
+(clerk/table
+ (-> ds
+     (tc/group-by :artists_name)
+     (tc/aggregate {:average_streams_per_track #(float (/ (reduce + (% :streams)) (count (% :track_name))))})
+     (tc/order-by [:average_streams_per_track] [:desc])
+     (tc/select-rows (range 11))))
 
 ;; Let's look at the distribution of streaming counts. How much of the streaming time do the top tracks eat up?
-;; I'll try grouping tracks into bands of 50.
 
 (clerk/vl
  (hc/xform
@@ -197,8 +233,11 @@
 
 ;; ## Release Dates
 
+^{::clerk/visibility {:result :hide}}
 (def top-10-by-year-released (-> ds (grouped-streams-top-10 :released_year)))
+^{::clerk/visibility {:result :hide}}
 (def top-10-by-month-released (-> ds (grouped-streams-top-10 :released_month)))
+^{::clerk/visibility {:result :hide}}
 (def top-10-by-day-released (-> ds (grouped-streams-top-10 :released_day)))
 
 ;; It seems like 2022 was a good year for music...
@@ -324,11 +363,11 @@
             (tc/group-by :bpm)
             (tc/aggregate-columns [:streams] #(reduce + %))
             (tc/rename-columns {:$group-name "BPM"
-                                :streams "Average Streams"})
+                                :streams "Total Streams"})
             (tc/rows :as-maps))
   :TITLE "Total Streams by BPM"
   :X "BPM"
-  :Y "Average Streams"
+  :Y "Total Streams"
   :WIDTH 600))
 
 ;; Unsurprisingly, 120 BPM has the highest streaming rate.
@@ -351,6 +390,7 @@
 
 ;; ### BPM and song qualities
 
+^{::clerk/visibility {:result :hide}}
 (def qualities [:danceability_%
                 :valence_%
                 :energy_%
@@ -359,6 +399,7 @@
                 :liveness_%
                 :speechiness_%])
 
+^{::clerk/visibility {:result :hide}}
 (defn average-qualities [ds group]
   (-> ds
       (tc/group-by group)
@@ -366,6 +407,7 @@
       (tc/rename-columns {:$group-name group})))
 
 
+^{::clerk/visibility {:result :hide}}
 (defn split-avg-qual-map [entries]
   (let [create-sub-map-quality (fn [quality entry]
                                  (-> {}
@@ -379,6 +421,7 @@
             []
             entries)))
 
+^{::clerk/visibility {:result :hide}}
 (def split-qualities-bpm (split-avg-qual-map
                           (-> (average-qualities ds :bpm) (tc/rows :as-maps))))
 ;; All qualities by BPM:
@@ -428,6 +471,7 @@
 ;;
 ;; Instead, lets try grouping the BPM into buckets of 10
 
+^{::clerk/visibility {:result :hide}}
 (defn assign-bpm-group [int]
   (let [s (str int)
         firsts (apply str (if (= 3 (count s)) (take 2 s) (into [\0] (take 1 s))))
@@ -435,6 +479,7 @@
     (str firsts "0-" (str upper "0"))))
 
 
+^{::clerk/visibility {:result :hide}}
 (def split-qualities-bpm-bin (split-avg-qual-map
                               (-> ds
                                   (tc/map-columns :bin-bpm [:bpm] assign-bpm-group)
@@ -582,6 +627,7 @@
 ;;
 ;; Let's build profiles of the top 10 streaming tracks.
 
+^{::clerk/visibility {:result :hide}}
 (def top-10
   (-> ds
       (tc/order-by [:streams] [:desc])
@@ -602,7 +648,8 @@
   :WIDTH 600))
 
 ;; Unsurprisingly, the top 10 tracks have an average of **68.8%** 'Danceability'
-  
+
+^{::clerk/visibility {:result :hide}}
 (defn top-qualities-split [entries]
   (let [submap-fn (fn [entry quality]
                     (-> {}
@@ -638,6 +685,7 @@
 ;; Let's look at the distribution of these songs by inclusion in spotify playlists.
 
 
+^{::clerk/visibility {:result :hide}}
 (def trend-layer-line
   (assoc ht/line-chart
          :aerial.hanami.templates/defaults
@@ -648,6 +696,7 @@
           :WIDTH :width> :HEIGHT :height>
           :USERDATA hc/RMV}))
 
+^{::clerk/visibility {:result :hide}}
 (def trend-layer
   (assoc ht/point-chart
          :aerial.hanami.templates/defaults
@@ -656,13 +705,9 @@
           :YSCALE {:zero false}
           :DATA hc/RMV
           :WIDTH :width> :HEIGHT :height>
-          :USERDATA hc/RMV
-          :TOOLTIP [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
-                    {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
-                    {:field "track_name" :type "nominal" :title "Track Name"}
-                    {:field "released_year" :type "nominal" :title "Year"}
-                    {:field "artists_name" :type "nominal" :title "Artist Name"}]}))
+          :USERDATA hc/RMV}))
 
+^{::clerk/visibility {:result :hide}}
 (def trend-chart
   (assoc ht/layer-chart
          :description "A two layer plot of base data and its smoothed trend line given by loess transform"
@@ -708,3 +753,18 @@
     :data/y> :streams)]))
 
 ;; Being included in Apple playlists seems more effective than Deezer.
+
+;; ## Conclusion
+;;
+;; This was just an exploratory look into the dataset. I'm still learning about the
+;; various libraries I've used here, and I haven't gone into depth around anything
+;; statistical. As you see, at the beginning I was mainly interested in seeing the
+;; 'Top 10' of everything!
+;;
+;; People would probably examine a dataset like this to discover things like 'what makes a track
+;; more "streamable"'. If this were the question, there is nothing too surprising or insightful
+;; in what I have looked at. You basically should have a song with a high danceability/energy/valence
+;; rating and make sure it is included in as many playlists as possible!
+;;
+;; There were also a few errors in the dataset that cropped up. I still don't know much about
+;; techniques around identifying and cleaning these types of errors. Something for next time.
