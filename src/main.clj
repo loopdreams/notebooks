@@ -3,7 +3,9 @@
 
 ;; Start clerk server
 (comment
-  (clerk/serve! {:browse? true :watch-paths ["src"]}))
+  (clerk/serve! {:browse? true :watch-paths ["notebooks"]}))
+
+(clerk/show! "src/notebooks/global_temp.clj")
 
 
 (defn -main []

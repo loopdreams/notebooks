@@ -12,16 +12,17 @@
    [nextjournal.clerk :as clerk]
    [tablecloth.api :as tc]))
 
+
 ^{::clerk/visibility {:code :hide :result :hide}}
 (swap! hc/_defaults assoc :BACKGROUND "white")
-^{::clerk/visibility {:code :hide :result :hide}}
-(swap! hc/_defaults assoc :TOOLTIP
-       [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
-        {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
-        {:field "track_name" :type "nominal" :title "Track Name"}
-        {:field "artists_name" :type "nominal" :title "Artist Name"}
-        {:field "released_year" :type "nominal" :title "Year Released"}])
-       
+;; ^{::clerk/visibility {:code :hide :result :hide}}
+;; (swap! hc/_defaults assoc :TOOLTIP
+;;        [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
+;;         {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
+;;         {:field "track_name" :type "nominal" :title "Track Name"}
+;;         {:field "artists_name" :type "nominal" :title "Artist Name"}
+;;         {:field "released_year" :type "nominal" :title "Year Released"}])
+
 ^{::clerk/visibility {:code :hide :result :hide}}
 (def input-file "resources/data/spotify_2023/spotify-2023.csv")
 
