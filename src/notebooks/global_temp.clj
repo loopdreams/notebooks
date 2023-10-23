@@ -7,12 +7,14 @@
    [clojure.string :as str]
    [nextjournal.clerk :as clerk]
    [tablecloth.api :as tc]
-   [java-time.api :as jt]))
+   [java-time.api :as jt]
+   [cheshire.core :as json]))
 
 ;; # Global Temperatures
 ;; - Source: [Global Temperatures Dataset on Kaggle](https://www.kaggle.com/datasets/berkeleyearth/climate-change-earth-surface-temperature-data)
 ;;
-;; A dataset containing information about global temperatures from 1750 to 2017.
+;; A dataset containing information about global temperatures from 1750 to 2015. It is a bit out of date now,
+;; but I'm exploring it as a learning exercise.
 ;;
 ;; There are also complementary files containing the same info by Country, City, etc.
 
@@ -21,8 +23,16 @@
 (def global_temperatures_file "resources/data/global_temperatures/GlobalTemperatures.csv")
 
 ^{::clerk/visibility {:result :hide}}
+(def country_temperatures_file "resources/data/global_temperatures/GlobalLandTemperaturesByCountry.csv")
+
+^{::clerk/visibility {:result :hide}}
 (def DS (-> global_temperatures_file
             (tc/dataset {:key-fn keyword})))
+
+^{::clerk/visibility {:result :hide}}
+(def DS_country (-> country_temperatures_file
+                    (tc/dataset {:key-fn keyword})))
+
 
 ;; ## Dataset Info
 ;; The main dataset has 3192 rows and 9 columns.
@@ -51,7 +61,6 @@
                       :code :show}}
 (def DS_A (-> DS
               (tc/map-columns :date [:dt] #(str %))))
-
 
 
 (clerk/vl
@@ -459,3 +468,144 @@
                         :Y "average_min_temp"
                         :YSCALE {:domain [0, 16]}
                         :WIDTH 300)])]))
+
+;; ## Country Data
+
+^{::clerk/visibility {:result :hide}}
+(def ds_countries_2012
+  (-> DS_country
+      (tc/select-rows (comp #(= "2012-12-01" (str %)) :dt))
+      (tc/rename-columns {:Country :Name})
+      (tc/rows :as-maps)))
+
+^{::clerk/visibility {:result :hide}}
+(def ds_countries_1970
+  (-> DS_country
+      (tc/select-rows (comp #(= "1970-12-01" (str %)) :dt))
+      (tc/rename-columns {:Country :Name})
+      (tc/rows :as-maps)))
+
+^{::clerk/visibility {:result :hide}}
+(def ds_countries_2012_Jul
+  (-> DS_country
+      (tc/select-rows (comp #(= "2012-07-01" (str %)) :dt))
+      (tc/rename-columns {:Country :Name})
+      (tc/rows :as-maps)))
+
+(def topo-json (slurp "resources/data/topo/countries-110m.json"))
+
+
+
+
+(clerk/vl
+ {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+  :data {:format {:feature "countries" :type "topojson"}
+         :values topo-json}
+  :height 450
+  :width 700
+  :title "Global Temperatures December 1st 2012"
+  :transform [{:lookup "properties.name"
+               :from {:data {:values ds_countries_2012}
+                      :fields ["AverageTemperature"]
+                      :key "Name"}}]
+               
+  :mark "geoshape"
+  :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
+  :projection {:type "equalEarth"}})
+
+(clerk/vl
+ {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+  :data {:format {:feature "countries" :type "topojson"}
+         :values topo-json}
+  :height 450
+  :width 700
+  :title "Global Temperatures December 1st 1970"
+  :transform [{:lookup "properties.name"
+               :from {:data {:values ds_countries_1970}
+                      :fields ["AverageTemperature"]
+                      :key "Name"}}]
+
+  :mark "geoshape"
+  :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
+  :projection {:type "equalEarth"}})
+
+(clerk/vl
+ {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+  :data {:format {:feature "countries" :type "topojson"}
+         :values topo-json}
+  :height 450
+  :width 700
+  :title "Global Temperatures July 1st 2012"
+  :transform [{:lookup "properties.name"
+               :from {:data {:values ds_countries_2012_Jul}
+                      :fields ["AverageTemperature"]
+                      :key "Name"}}]
+
+  :mark "geoshape"
+  :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
+  :projection {:type "equalEarth"}})
+
+;; ### Hottest Countries by Year (Highest average recorded)
+
+;; TODO Try put these side by side
+^{::clerk/visibility {:result :hide}}
+(def hottest-countries-year
+  (-> DS_country
+      (tc/map-columns :year [:dt] #(str (jt/year %)))
+      (tc/group-by :year)
+      (tc/order-by [:AverageTemperature] [:desc])
+      (tc/aggregate {:highest-avg-temp #(first (% :AverageTemperature))
+                     :country #(first (% :Country))})
+      (tc/rename-columns {:$group-name :year})
+      (tc/drop-missing)))
+
+(clerk/vl
+ (hc/xform
+  ht/bar-chart
+  :DATA (-> hottest-countries-year (tc/rows :as-maps))
+  :X "highest-avg-temp" :XTYPE "quantitative"
+  :Y "year" :YTYPE "temporal"
+  :COLOR "country"
+  :HEIGHT 2000))
+
+;; ### Coldest Countries by Year (Lowest average recorded)
+
+
+^{::clerk/visibility {:result :hide}}
+(def coldest-countries-year
+  (-> DS_country
+      (tc/drop-missing)
+      (tc/map-columns :year [:dt] #(str (jt/year %)))
+      (tc/group-by :year)
+      (tc/order-by [:AverageTemperature])
+      (tc/aggregate {:lowest-avg-temp #(first (% :AverageTemperature))
+                     :country #(first (% :Country))})
+      (tc/rename-columns {:$group-name :year})))
+      
+
+
+(clerk/vl
+ (hc/xform
+  ht/bar-chart
+  :DATA (-> coldest-countries-year (tc/rows :as-maps))
+  :X "lowest-avg-temp" :XTYPE "quantitative"
+  :Y "year" :YTYPE "temporal"
+  :COLOR "country"
+  :HEIGHT 2000))
+
+;; ### Ireland
+
+(clerk/vl
+ (hc/xform
+  ht/point-chart
+  :DATA
+  (-> DS_country
+      (tc/drop-missing)
+      (tc/select-rows (comp #(= "Ireland" %) :Country))
+      (tc/map-columns :season [:dt] #(assign-season %))
+      (tc/map-columns :date [:dt] #(str %))
+      (tc/rows :as-maps))
+  :X "date" :XTYPE "temporal"
+  :Y "AverageTemperature" :YTPE "quantitative"
+  :COLOR "season"
+  :WIDTH 600))
