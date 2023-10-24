@@ -1,7 +1,6 @@
 ;; # Exploring 'Most Streamed Spotify Songs 2023'
-;; - Dataset Source: [Kaggle](https://www.kaggle.com/datasets/rajatsurana979/most-streamed-spotify-songs-2023)
-;; - Last updated: <2023-10-15 Sun>
-;; TODO Clean up and finalize
+;; The notebook below is based on a dataset found on [Kaggle.](https://www.kaggle.com/datasets/rajatsurana979/most-streamed-spotify-songs-2023)
+;; It contains information about top streaming tracks on Spotify in 2023.
 (ns notebooks.spotify
   {:nextjournal.clerk/visibility {:code :fold}
    :nextjournal.clerk/toc true}
@@ -12,16 +11,9 @@
    [nextjournal.clerk :as clerk]
    [tablecloth.api :as tc]))
 
-
 ^{::clerk/visibility {:code :hide :result :hide}}
 (swap! hc/_defaults assoc :BACKGROUND "white")
-;; ^{::clerk/visibility {:code :hide :result :hide}}
-;; (swap! hc/_defaults assoc :TOOLTIP
-;;        [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
-;;         {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
-;;         {:field "track_name" :type "nominal" :title "Track Name"}
-;;         {:field "artists_name" :type "nominal" :title "Artist Name"}
-;;         {:field "released_year" :type "nominal" :title "Year Released"}])
+
 
 ^{::clerk/visibility {:code :hide :result :hide}}
 (def input-file "resources/data/spotify_2023/spotify-2023.csv")
@@ -110,6 +102,60 @@
      (tc/select-rows (range 11))
      (tc/map-columns :streams [:streams] format-num)))
 
+;; Let's look at the distribution of streaming counts. How much of the streaming time do the top tracks eat up?
+
+(clerk/vl
+ (hc/xform
+  ht/bar-chart
+  :DATA (-> ds
+            (tc/order-by [:streams] [:desc])
+            (tc/group-by {"A Top 150" (range 151)
+                          "B 151-951" (range 151 952)})
+            (tc/aggregate-columns [:streams] #(reduce + %))
+            (tc/rename-columns {:$group-name :group})
+            (tc/rows :as-maps))
+  :X "group"  :XTYPE "nominal"
+  :Y "streams"
+  :WIDTH "600"))
+
+;; The top 150 Tracks have roughly the same amount of streams as the remaining 800.
+
+;; Here is the streaming count distribution for all of the tracks:
+(clerk/vl
+ (hc/xform
+  ht/bar-chart
+  :DATA (-> ds
+            (tc/order-by [:streams] [:desc])
+            (tc/add-column :ranking (range))
+            (tc/rows :as-maps))
+  :X "ranking" :XTYPE "ordinal" :XAXIS {:labels false}
+  :Y "streams"
+  :WIDTH "600"
+  :TOOLTIP [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
+            {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
+            {:field "track_name" :type "nominal" :title "Track Name"}
+            {:field "artists_name" :type "nominal" :title "Artist Name"}
+            {:field "released_year" :type "nominal" :title "Year Released"}]))
+
+
+;; And for the top 20...
+
+(clerk/vl
+ (hc/xform
+  ht/bar-chart
+  :DATA (take 20 (-> ds
+                     (tc/order-by [:streams] [:desc])
+                     (tc/add-column :ranking (range))
+                     (tc/rows :as-maps)))
+  :X "ranking" :XTYPE "ordinal" :XAXIS {:labels false}
+  :Y "streams"
+  :WIDTH 500
+  :COLOR "artists_name"
+  :TOOLTIP [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
+            {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
+            {:field "track_name" :type "nominal" :title "Track Name"}
+            {:field "artists_name" :type "nominal" :title "Artist Name"}
+            {:field "released_year" :type "nominal" :title "Year Released"}]))
 
 ;; ### Top 10 Most Streamed Artists
 
@@ -143,6 +189,7 @@
 (clerk/vl
  (hc/xform
   ht/bar-chart
+  :TITLE "Artists with most tracks"
   :DATA (-> ds
             (tc/group-by :artists_name)
             (tc/aggregate-columns [:track_name] #(count %))
@@ -155,57 +202,6 @@
   :Y "number_of_tracks"
   :WIDTH "600"))
 
-(clerk/table
- (-> ds
-     (tc/group-by :artists_name)
-     (tc/aggregate {:average_streams_per_track #(float (/ (reduce + (% :streams)) (count (% :track_name))))})
-     (tc/order-by [:average_streams_per_track] [:desc])
-     (tc/select-rows (range 11))))
-
-;; Let's look at the distribution of streaming counts. How much of the streaming time do the top tracks eat up?
-
-(clerk/vl
- (hc/xform
-  ht/bar-chart
-  :DATA (-> ds
-            (tc/order-by [:streams] [:desc])
-            (tc/group-by {"A Top 150" (range 151)
-                          "B 151-951" (range 151 952)})
-            (tc/aggregate-columns [:streams] #(reduce + %))
-            (tc/rename-columns {:$group-name :group})
-            (tc/rows :as-maps))
-  :X "group"  :XTYPE "nominal"
-  :Y "streams"
-  :WIDTH "600"))
-
-;; The top 150 Tracks have roughly the same amount of streams as the remaining 800.
-
-;; All Tracks Distribution
-(clerk/vl
- (hc/xform
-  ht/bar-chart
-  :DATA (-> ds
-            (tc/order-by [:streams] [:desc])
-            (tc/add-column :ranking (range))
-            (tc/rows :as-maps))
-  :X "ranking" :XTYPE "ordinal" :XAXIS {:labels false}
-  :Y "streams"
-  :WIDTH "600"))
-
-;; Top 20 Distribution
-;; 
-
-(clerk/vl
- (hc/xform
-  ht/bar-chart
-  :DATA (take 20 (-> ds
-                     (tc/order-by [:streams] [:desc])
-                     (tc/add-column :ranking (range))
-                     (tc/rows :as-maps)))
-  :X "ranking" :XTYPE "ordinal" :XAXIS {:labels false}
-  :Y "streams"
-  :WIDTH 500
-  :COLOR "artists_name"))
 ;; ### Top 10 Tracks Released in 2023
 
 
@@ -241,7 +237,7 @@
 ^{::clerk/visibility {:result :hide}}
 (def top-10-by-day-released (-> ds (grouped-streams-top-10 :released_day)))
 
-;; It seems like 2022 was a good year for music...
+;; It seems like 2022 was a good year for music! At least, according to Spotify listeners in 2023:
 
 (clerk/vl
  (hc/xform
@@ -286,6 +282,7 @@
 ;; I'm not sure how Vance Joy managed to release that song 12 years before he was born! :/ Release date should be 2013.
 ;;
 
+
 (clerk/vl
  (hc/xform
   ht/bar-chart
@@ -309,6 +306,7 @@
 ;; It is more likely these values were provided automatically for missing values.
 ;; Let's look at a few of these.
 
+
 (clerk/table
  (-> ds
      (tc/select-rows (comp #(= 1 %) :released_month))
@@ -317,8 +315,14 @@
      (tc/order-by [:streams] [:desc])
      (tc/select-rows (range 11))))
 
-
-;; TODO Finish adding the correct info for tracks in here, to proove the source data is incorrect.
+;; According to Wikipedia, the correct release dates for the first few entries here are:
+;; - Perfect (Ed Sheeran) **26 September 2017**
+;; - Thinking Out Loud (Ed Sheeran) **24 September 2014**
+;; - Counting Stars (One Republic) **June 14, 2013**
+;; - Riptide (Vance Joy) - As mentioned above this entry doesn't even have the correct year...
+;;
+;; Safe to say that these entries are probably errors, and it is impossible to conclude that January 1st
+;; is in fact the best time to release a song!
 
 
 ;; ## Collaborations
@@ -706,7 +710,12 @@
           :YSCALE {:zero false}
           :DATA hc/RMV
           :WIDTH :width> :HEIGHT :height>
-          :USERDATA hc/RMV}))
+          :USERDATA hc/RMV
+          :TOOLTIP [{:field :X, :type :XTYPE, :title :XTTITLE, :format :XTFMT}
+                    {:field :Y, :type :YTYPE, :title :YTTITLE, :format :YTFMT}
+                    {:field "track_name" :type "nominal" :title "Track Name"}
+                    {:field "artists_name" :type "nominal" :title "Artist Name"}
+                    {:field "released_year" :type "nominal" :title "Year Released"}]}))
 
 ^{::clerk/visibility {:result :hide}}
 (def trend-chart
@@ -769,3 +778,6 @@
 ;;
 ;; There were also a few errors in the dataset that cropped up. I still don't know much about
 ;; techniques around identifying and cleaning these types of errors. Something for next time.
+;;
+;; Other things that I could have looked at but didn't are the impact of song key and mode (major/minor)
+;; on streaming rate.
