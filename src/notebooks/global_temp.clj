@@ -470,31 +470,46 @@
                         :WIDTH 300)])]))
 
 ;; ## Country Data
+;; In order to get the map below to work, I had to update a few of the country names to match
+;; the names in the topojson file. I might have missed some!
+
+;; Source for the topojson file on [Github - topojson/worldatlas](https://github.com/topojson/world-atlas)
+
+^{::clerk/visibility {:code :show :result :hide}}
+(def DS_country_updated
+  (-> DS_country
+      (tc/map-columns :country-updated [:Country]
+                      (fn [country]
+                        (condp = country
+                          "United States"                      "United States of America"
+                          "Czech Republic"                     "Czechia"
+                          "Congo (Democratic Republic Of The)" "Dem. Rep. Congo"
+                          "Central African Republic"           "Central African Rep."
+                          "Bosnia and Herzegovina"             "Bosnia and Herz."
+                          country)))))
+
+;; I couldn't find Eswatini or South Sudan in the dataset.
+
 
 ^{::clerk/visibility {:result :hide}}
-(def ds_countries_2012
-  (-> DS_country
+(def ds_countries_2012_Dec
+  (-> DS_country_updated
       (tc/select-rows (comp #(= "2012-12-01" (str %)) :dt))
-      (tc/rename-columns {:Country :Name})
       (tc/rows :as-maps)))
 
-^{::clerk/visibility {:result :hide}}
-(def ds_countries_1970
-  (-> DS_country
-      (tc/select-rows (comp #(= "1970-12-01" (str %)) :dt))
-      (tc/rename-columns {:Country :Name})
-      (tc/rows :as-maps)))
 
 ^{::clerk/visibility {:result :hide}}
 (def ds_countries_2012_Jul
-  (-> DS_country
+  (-> DS_country_updated
       (tc/select-rows (comp #(= "2012-07-01" (str %)) :dt))
-      (tc/rename-columns {:Country :Name})
       (tc/rows :as-maps)))
+
 
 (def topo-json (slurp "resources/data/topo/countries-110m.json"))
 
 
+;; Global Picture of Winter and Summer in 2012.
+;;
 
 
 (clerk/vl
@@ -505,29 +520,14 @@
   :width 700
   :title "Global Temperatures December 1st 2012"
   :transform [{:lookup "properties.name"
-               :from {:data {:values ds_countries_2012}
+               :from {:data {:values ds_countries_2012_Dec}
                       :fields ["AverageTemperature"]
-                      :key "Name"}}]
+                      :key "country-updated"}}]
                
   :mark "geoshape"
   :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
-  :projection {:type "equalEarth"}})
+  :projection {:type "mercator"}})
 
-(clerk/vl
- {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
-  :data {:format {:feature "countries" :type "topojson"}
-         :values topo-json}
-  :height 450
-  :width 700
-  :title "Global Temperatures December 1st 1970"
-  :transform [{:lookup "properties.name"
-               :from {:data {:values ds_countries_1970}
-                      :fields ["AverageTemperature"]
-                      :key "Name"}}]
-
-  :mark "geoshape"
-  :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
-  :projection {:type "equalEarth"}})
 
 (clerk/vl
  {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
@@ -539,13 +539,13 @@
   :transform [{:lookup "properties.name"
                :from {:data {:values ds_countries_2012_Jul}
                       :fields ["AverageTemperature"]
-                      :key "Name"}}]
+                      :key "country-updated"}}]
 
   :mark "geoshape"
   :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
-  :projection {:type "equalEarth"}})
+  :projection {:type "mercator"}})
 
-;; ### Hottest Countries by Year (Highest average recorded)
+;; ### Hottest Countries by Year (Highest monthly average recorded)
 
 ;; TODO Try put these side by side
 ^{::clerk/visibility {:result :hide}}

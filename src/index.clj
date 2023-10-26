@@ -14,4 +14,7 @@
        [:div.text-xs.text-gray-500.group-hover:text-indigo-600.leading-normal description]]])
    [{:title "Most Streamed Spotify Songs 2023"
      :path "notebooks/spotify.clj"
+     :description "Looking into some 2023 spotify stats using a data file from Kaggle"}
+    {:title "Global Temperatures to 2015"
+     :path "notebooks/global_temp.clj"
      :description "Looking into some 2023 spotify stats using a data file from Kaggle"}])))
