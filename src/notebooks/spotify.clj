@@ -12,21 +12,16 @@
    [tablecloth.api :as tc]))
 
 
-^{::clerk/visibility {:result :hide}}
+{::clerk/visibility {:result :hide}}
 (swap! hc/_defaults assoc :BACKGROUND "white")
 
-^{::clerk/visibility {:code :hide :result :hide}}
 (def input-file "resources/data/spotify_2023/spotify-2023.csv")
 
-
-^{::clerk/visibility {:result :hide}}
 (defn remove-brackets-name
   "Helper function for cleaning the column named 'artist(s)_name'"
   [name]
   (str/replace name #"([()])" ""))
 
-
-^{::clerk/visibility {:result :hide}}
 (def ds (-> (tc/dataset input-file {:key-fn (comp keyword remove-brackets-name)})
             (tc/order-by :streams [:desc]) ;; this and below to remove the missing/error 'stream' value
             (tc/drop-rows 0)
@@ -35,6 +30,7 @@
 ;; ## First Look
 ;; ### Dataset Info
 
+{::clerk/visibility {:result :show}}
 (clerk/table
  (-> ds
      (tc/info :basic)
@@ -159,7 +155,7 @@
 
 ;; ### Top 10 Most Streamed Artists
 
-^{::clerk/visibility {:result :hide}}
+{::clerk/visibility {:result :hide}}
 (defn grouped-streams-top-10 [data category]
   (-> data
       (tc/group-by category)
@@ -167,12 +163,12 @@
       (tc/order-by [:streams] [:desc])
       (tc/rename-columns {:$group-name category})))
 
-^{::clerk/visibility {:result :hide}}
 (def top-10-artists-by-streams
   (-> ds
       (grouped-streams-top-10 :artists_name)
       (tc/select-rows (range 11))))
 
+{::clerk/visibility {:result :show}}
 (clerk/table
  (-> top-10-artists-by-streams
      (tc/map-columns :streams [:streams] format-num)))
@@ -230,15 +226,14 @@
 
 ;; ## Release Dates
 
-^{::clerk/visibility {:result :hide}}
+{::clerk/visibility {:result :hide}}
 (def top-10-by-year-released (-> ds (grouped-streams-top-10 :released_year)))
-^{::clerk/visibility {:result :hide}}
 (def top-10-by-month-released (-> ds (grouped-streams-top-10 :released_month)))
-^{::clerk/visibility {:result :hide}}
 (def top-10-by-day-released (-> ds (grouped-streams-top-10 :released_day)))
 
 ;; It seems like 2022 was a good year for music! At least, according to Spotify listeners in 2023:
 
+{::clerk/visibility {:result :show}}
 (clerk/vl
  (hc/xform
   ht/bar-chart
@@ -395,7 +390,7 @@
 
 ;; ### BPM and song qualities
 
-^{::clerk/visibility {:result :hide}}
+{::clerk/visibility {:result :hide}}
 (def qualities [:danceability_%
                 :valence_%
                 :energy_%
@@ -404,7 +399,6 @@
                 :liveness_%
                 :speechiness_%])
 
-^{::clerk/visibility {:result :hide}}
 (defn average-qualities [ds group]
   (-> ds
       (tc/group-by group)
@@ -412,7 +406,6 @@
       (tc/rename-columns {:$group-name group})))
 
 
-^{::clerk/visibility {:result :hide}}
 (defn split-avg-qual-map [entries]
   (let [create-sub-map-quality (fn [quality entry]
                                  (-> {}
@@ -426,11 +419,11 @@
             []
             entries)))
 
-^{::clerk/visibility {:result :hide}}
 (def split-qualities-bpm (split-avg-qual-map
                           (-> (average-qualities ds :bpm) (tc/rows :as-maps))))
 ;; All qualities by BPM:
 
+{::clerk/visibility {:result :show}}
 (clerk/vl
  (hc/xform
   ht/bar-chart
@@ -476,7 +469,7 @@
 ;;
 ;; Instead, lets try grouping the BPM into buckets of 10
 
-^{::clerk/visibility {:result :hide}}
+{::clerk/visibility {:result :hide}}
 (defn assign-bpm-group [int]
   (let [s (str int)
         firsts (apply str (if (= 3 (count s)) (take 2 s) (into [\0] (take 1 s))))
@@ -484,13 +477,13 @@
     (str firsts "0-" (str upper "0"))))
 
 
-^{::clerk/visibility {:result :hide}}
 (def split-qualities-bpm-bin (split-avg-qual-map
                               (-> ds
                                   (tc/map-columns :bin-bpm [:bpm] assign-bpm-group)
                                   (average-qualities :bin-bpm)
                                   (tc/rows :as-maps))))
 
+{::clerk/visibility {:result :show}}
 (clerk/vl
  (hc/xform
   ht/bar-chart
@@ -690,7 +683,7 @@
 ;; Let's look at the distribution of these songs by inclusion in spotify playlists.
 
 
-^{::clerk/visibility {:result :hide}}
+{::clerk/visibility {:result :hide}}
 (def trend-layer-line
   (assoc ht/line-chart
          :aerial.hanami.templates/defaults
@@ -701,7 +694,6 @@
           :WIDTH :width> :HEIGHT :height>
           :USERDATA hc/RMV}))
 
-^{::clerk/visibility {:result :hide}}
 (def trend-layer
   (assoc ht/point-chart
          :aerial.hanami.templates/defaults
@@ -717,7 +709,6 @@
                     {:field "artists_name" :type "nominal" :title "Artist Name"}
                     {:field "released_year" :type "nominal" :title "Year Released"}]}))
 
-^{::clerk/visibility {:result :hide}}
 (def trend-chart
   (assoc ht/layer-chart
          :description "A two layer plot of base data and its smoothed trend line given by loess transform"
@@ -732,6 +723,7 @@
           :width> 600
           :height> (hc/get-defaults :HEIGHT)}))
 
+{::clerk/visibility {:result :show}}
 (clerk/vl
  (hc/xform
   trend-chart
