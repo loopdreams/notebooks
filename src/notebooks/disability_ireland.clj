@@ -8,28 +8,14 @@
    [nextjournal.clerk :as clerk]
    [tablecloth.api :as tc]))
 
-
-;; # Irish population with a disability 'to a great extent'
-;;
-;; This data is based on the recent Irish census (2022) which grouped responses
-;; regarding the question of disability under three headings:
-;; - Any disability
-;; - A disability to some extent
-;; - A disability to a great extent
-;;
-;; Here, I will focus only on the last of these areas (**disabilty to a great extent**).
-
-;; Link to data source (Irish CSO website) - [CSO Census 2022 - Disability, Health and Carers](https://data.cso.ie/product/C2022P4)
-;;
-
 ^{::clerk/visibility {:result :hide}}
 (swap! hc/_defaults assoc :BACKGROUND "white")
 
 {::clerk/visibility {:result :hide}}
 (def file-overview-disability-types-f4002 "resources/data/disability/disability_types_overiew_F4002.csv")
-(def file-persons-w-disability-type-f4005 "resources/data/disability/F4005.20231026T171007.csv")
+(def file-counties-persons-w-disability-type-f4005 "resources/data/disability/counties_disability_type_F4005.csv")
+(def file-counties-all-population-f4042 "resources/data/disability/population_F4042.csv")
 (def file-disability-age-sex-f4002 "resources/data/disability/dis_age_sex.csv")
-(def file-all-population-county-f4042 "resources/data/disability/population_F4042.csv")
 (def file-dis-type-f4005 "resources/data/disability/dis_types_f4005.csv")
 (def file-dis-type-age-f4006 "resources/data/disability/type_single_year_age_F4006.csv")
 (def file-great-extent-SYOA-f4006 "resources/data/disability/great_extent_single_age_F4006.csv")
@@ -45,22 +31,29 @@
 
 (def map-ireland (slurp file-ireland-topo))
 
+;; # Irish population with a disability 'to a great extent'
+;;
+;; This data is based on the recent Irish census (2022) which grouped responses
+;; regarding the question of disability under three headings:
+;; - Any disability
+;; - A disability to some extent
+;; - A disability to a great extent
+;;
+;; Here, I will focus only on the last of these areas (**disabilty to a great extent**).
+
+;; Link to data source (Irish CSO website) - [CSO Census 2022 - Disability, Health and Carers](https://data.cso.ie/product/C2022P4)
+;;
+
+
 (defn clean-keyword [keyword]
   (str/replace keyword #"[\"\" \p{C}]" ""))
+
+(defn make-ds [file] (tc/dataset file {:key-fn (comp keyword clean-keyword)}))
 
 (defn agestr->int [str]
   (if (re-find #"Under" str) 0
       (parse-long (re-find #"\d+" str))))
 
-(defn make-ds [file] (tc/dataset file {:key-fn (comp keyword clean-keyword)}))
-
-(defn translate-county-labels [label]
-  (if (re-find #"Dublin|Rathdown|Fingal" label) "Dublin"
-      (first (re-seq #"\w+" label))))
-
-(def DS_counties
-  (-> file-persons-w-disability-type-f4005 make-ds
-      (tc/map-columns :county [:AdministrativeCounties] #(translate-county-labels %))))
 
 (def DS_age_sex (-> file-disability-age-sex-f4002 make-ds))
 (def DS_age_sex_SYOA (-> file-great-extent-SYOA-f4006
@@ -129,7 +122,6 @@
 ;; in the population pyramid below, the number of women disabled to a great extent over the age of
 ;; 85 (approx. 55,000) is the highest group across all age categories, male or female.
 
-;; TODO Try remove border here
 {::clerk/visibility {:result :show}}
 (clerk/vl
  (hc/xform
@@ -157,6 +149,8 @@
 ;; extent. The first chart shows ages grouped into 5 year bands, and the second shows 'single year
 ;; of age'. Most notably, there are three clear 'peaks' in the case of women (around ages 20, 60 and 85),
 ;; but only two for males (around ages 14/15 and 60-65).
+;;
+;; TODO Try remove border here
 (clerk/vl
  (hc/xform
   ht/hconcat-chart
@@ -227,12 +221,20 @@
              :MCOLOR "purple"
              :HEIGHT 700)]))
 
-;; ## Map of the Data
+;; ## Disability to a Great Extent by County
 ;;
 ;; Topo JSON file for this map taken from this project - (https://andrewerrity.com/d3-project/).
 ;; Code available on [Github](https://github.com/aerrity/d3-cartogram).
 
 {::clerk/visibility {:result :hide}}
+(defn translate-county-labels [label]
+  (if (re-find #"Dublin|Rathdown|Fingal" label) "Dublin"
+      (first (re-seq #"\w+" label))))
+
+(def DS_counties
+  (-> file-counties-persons-w-disability-type-f4005 make-ds
+      (tc/map-columns :county [:AdministrativeCounties] #(translate-county-labels %))))
+
 (def county-data-both-sexes
   (-> DS_counties
       (tc/select-rows (comp #(= "Both sexes" %) :Sex))
@@ -244,7 +246,7 @@
 
 
 (def all-population
-  (-> file-all-population-county-f4042
+  (-> file-counties-all-population-f4042
       make-ds
       (tc/map-columns :county [:AdministrativeCounties] #(translate-county-labels %))
       (tc/group-by :county)
@@ -459,47 +461,52 @@
                       #(float (* 100 (/ %2 %1))))))
 
 (def age-restricted-joined-84 (age-restricted-join age-restricted-male-84 age-restricted-female-84))
-
-{::clerk/visibility {:result :show}}
-(clerk/vl
- (hc/xform
-  ht/layer-chart
-  :LAYER
-  [(hc/xform
-    ht/bar-chart
-    :DATA (type-proportions-chart age-restricted-joined-84)
-    :X "difficulty" :XTYPE "nominal" :XSORT {:op "sum" :field "percentage-female"}
-    :Y "value" :YTYPE "quantitative" :YTITLE "Percentage"
-    :COLOR ht/default-color :CFIELD "type" :CSCALE {:scheme "paired"}
-    :WIDTH 500)
-   {:data {:values (type-proportions-chart age-restricted-joined-84)}
-    :mark {:type "line"  :color "firebrick" :strokeWidth 2}
-    :encoding {:y {:field "value" :aggregate "average"}
-               :x {:field "difficulty" :type "nominal" :sort {:op "sum" :field "percentage-female"}}}}]))
-
-;; Let's go a bit further and look at only people under 18
-
-{::clerk/visibility {:result :hide}}
 (def age-restricted-female-18 (aggregate-people-type (DS_type_age_restricted 18) "Female"))
 (def age-restricted-male-18 (aggregate-people-type (DS_type_age_restricted 18) "Male"))
 (def age-restricted-joined-18 (age-restricted-join age-restricted-male-18 age-restricted-female-18))
 
 {::clerk/visibility {:result :show}}
+
 (clerk/vl
  (hc/xform
-  ht/layer-chart
-  :LAYER
-  [(hc/xform
-    ht/bar-chart
-    :DATA (type-proportions-chart age-restricted-joined-18)
-    :X "difficulty" :XTYPE "nominal" :XSORT {:op "sum" :field "percentage-female"}
-    :Y "value" :YTYPE "quantitative" :YTITLE "Percentage"
-    :COLOR ht/default-color :CFIELD "type" :CSCALE {:scheme "paired"}
-    :WIDTH 500)
-   {:data {:values (type-proportions-chart age-restricted-joined-18)}
-    :mark {:type "line"  :color "firebrick" :strokeWidth 2}
-    :encoding {:y {:field "value" :aggregate "average"}
-               :x {:field "difficulty" :type "nominal" :sort {:op "sum" :field "percentage-female"}}}}]))
+  ht/hconcat-chart
+  :HCONCAT
+  [
+   (hc/xform
+    ht/layer-chart
+    :LAYER
+    [(hc/xform
+      ht/bar-chart
+      :TITLE "Under 65"
+      :DATA (type-proportions-chart age-restricted-joined-84)
+      :X "difficulty" :XTYPE "nominal" :XSORT {:op "sum" :field "percentage-female"}
+      :Y "value" :YTYPE "quantitative" :YTITLE "Percentage"
+      :COLOR ht/default-color :CFIELD "type" :CSCALE {:scheme "paired"}
+      :WIDTH 250)
+     {:data {:values (type-proportions-chart age-restricted-joined-84)}
+      :mark {:type "line"  :color "firebrick" :strokeWidth 2}
+      :encoding {:y {:field "value" :aggregate "average"}
+                 :x {:field "difficulty" :type "nominal" :sort {:op "sum" :field "percentage-female"}}}}])
+   (hc/xform
+    ht/layer-chart
+    :LAYER
+    [(hc/xform
+      ht/bar-chart
+      :TITLE "Under 18"
+      :DATA (type-proportions-chart age-restricted-joined-18)
+      :X "difficulty" :XTYPE "nominal" :XSORT {:op "sum" :field "percentage-female"}
+      :Y "value" :YTYPE "quantitative" :YAXIS nil :YSCALE {:domain [0 100]}
+      :COLOR ht/default-color :CFIELD "type" :CSCALE {:scheme "paired"}
+      :WIDTH 250)
+     {:data {:values (type-proportions-chart age-restricted-joined-18)}
+      :mark {:type "line"  :color "firebrick" :strokeWidth 2}
+      :encoding {:y {:field "value" :aggregate "average"}
+                 :x {:field "difficulty" :type "nominal" :sort {:op "sum" :field "percentage-female"}}}}])]))
+
+
+
+
+ 
 
 
 ;; ## Employment
@@ -682,16 +689,20 @@
 ;; ## Private Households
 
 (clerk/vl
- (hc/xform
-  ht/bar-chart
-  :DATA
-  (-> file-households-general-f4054
-      make-ds
-      (tc/drop-rows #(= "Both sexes" (% :Sex)))
-      (tc/rows :as-maps))
-  :X :Extentofdifficultyorcondition :XTYPE "nominal"
-  :Y "VALUE"
-  :COLOR "Sex"))
+ {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+  :title "Number in Private Households"
+  :data {:values (-> file-households-general-f4054
+                     make-ds
+                     (tc/drop-rows #(= "Both sexes" (% :Sex)))
+                     (tc/rows :as-maps))}
+  :mark {:type "bar" :tooltip true}
+  :width 500
+  :height 400
+  :encoding {:x {:field :Extentofdifficultyorcondition :type "nominal"}
+             :y {:field "VALUE" :type "quantitative"}
+             :xOffset {:field "Sex"}
+             :color {:field "Sex"
+                     :scale {:scheme "paired"}}}})
 
 (clerk/table
  (-> file-households-general-f4054
