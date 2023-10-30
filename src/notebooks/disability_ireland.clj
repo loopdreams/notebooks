@@ -12,24 +12,28 @@
 (swap! hc/_defaults assoc :BACKGROUND "white")
 
 {::clerk/visibility {:result :hide}}
-(def file-overview-disability-types-f4002 "resources/data/disability/disability_types_overiew_F4002.csv")
-(def file-counties-persons-w-disability-type-f4005 "resources/data/disability/counties_disability_type_F4005.csv")
-(def file-counties-all-population-f4042 "resources/data/disability/population_F4042.csv")
-(def file-disability-age-sex-f4002 "resources/data/disability/dis_age_sex.csv")
-(def file-dis-type-f4005 "resources/data/disability/dis_types_f4005.csv")
-(def file-dis-type-age-f4006 "resources/data/disability/type_single_year_age_F4006.csv")
-(def file-great-extent-SYOA-f4006 "resources/data/disability/great_extent_single_age_F4006.csv")
-(def file-unemployment-people-f4058 "resources/data/disability/unemployment_people_F4058.csv")
-(def file-unemployment-age-f4067 "resources/data/disability/unemployment_age_F4067.csv")
-(def file-total-occupation-both-f4049 "resources/data/disability/total_occupation_both_F4049.csv")
-(def file-total-occupation-sex-f4049 "resources/data/disability/total_occupation_sex_F4049.csv")
-(def file-households-general-f4054 "resources/data/disability/households_any_F4054.csv")
-(def file-households-type-f4054 "resources/data/disability/households_house_type_F4054.csv")
-(def file-households-ID-f4054 "resources/data/disability/household_ID_housetype_F4054.csv")
-(def file-households-mobility-f4054 "resources/data/disability/households_mobility_housetype_F4054.csv")
-(def file-ireland-topo "resources/data/topo/ireland.topojson")
 
-(def map-ireland (slurp file-ireland-topo))
+(def r-dir "resources/data/disability/")
+
+(def files
+  {'file-overview-disability-types-f4002          (str r-dir "disability_types_overiew_F4002.csv")
+   'file-counties-persons-w-disability-type-f4005 (str r-dir "counties_disability_type_F4005.csv")
+   'file-counties-all-population-f4042            (str r-dir "population_F4042.csv")
+   'file-disability-age-sex-f4002                 (str r-dir "dis_age_sex.csv")
+   'file-dis-type-f4005                           (str r-dir "dis_types_f4005.csv")
+   'file-dis-type-age-f4006                       (str r-dir "type_single_year_age_F4006.csv")
+   'file-great-extent-SYOA-f4006                  (str r-dir "great_extent_single_age_F4006.csv")
+   'file-unemployment-people-f4058                (str r-dir "unemployment_people_F4058.csv")
+   'file-unemployment-age-f4067                   (str r-dir "unemployment_age_F4067.csv")
+   'file-total-occupation-both-f4049              (str r-dir "total_occupation_both_F4049.csv")
+   'file-total-occupation-sex-f4049               (str r-dir "total_occupation_sex_F4049.csv")
+   'file-households-general-f4054                 (str r-dir "households_any_F4054.csv")
+   'file-households-type-f4054                    (str r-dir "households_house_type_F4054.csv")
+   'file-households-ID-f4054                      (str r-dir "household_ID_housetype_F4054.csv")
+   'file-households-mobility-f4054                (str r-dir "households_mobility_housetype_F4054.csv")
+   'file-ireland-topo                             "resources/data/topo/ireland.topojson"})
+
+(def map-ireland (slurp (get files 'file-ireland-topo)))
 
 ;; # Irish population with a disability 'to a great extent'
 ;;
@@ -55,8 +59,8 @@
       (parse-long (re-find #"\d+" str))))
 
 
-(def DS_age_sex (-> file-disability-age-sex-f4002 make-ds))
-(def DS_age_sex_SYOA (-> file-great-extent-SYOA-f4006
+(def DS_age_sex (-> (get files 'file-disability-age-sex-f4002) make-ds))
+(def DS_age_sex_SYOA (-> (get files 'file-great-extent-SYOA-f4006)
                          make-ds
                          (tc/drop-rows (comp #(= "Both sexes" %) :Sex))))
 
@@ -98,7 +102,7 @@
 (def mf-join-SYOA (mf-join-fn DS_age_sex_SYOA :SingleYearofAge))
 
 (defn filter-overview-ds [unit]
-  (-> file-overview-disability-types-f4002
+  (-> (get files 'file-overview-disability-types-f4002)
       make-ds
       (tc/select-rows #(= unit (% :UNIT)))
       (tc/rows :as-maps)))
@@ -232,7 +236,7 @@
       (first (re-seq #"\w+" label))))
 
 (def DS_counties
-  (-> file-counties-persons-w-disability-type-f4005 make-ds
+  (-> (get files 'file-counties-persons-w-disability-type-f4005) make-ds
       (tc/map-columns :county [:AdministrativeCounties] #(translate-county-labels %))))
 
 (def county-data-both-sexes
@@ -246,7 +250,7 @@
 
 
 (def all-population
-  (-> file-counties-all-population-f4042
+  (-> (get files 'file-counties-all-population-f4042)
       make-ds
       (tc/map-columns :county [:AdministrativeCounties] #(translate-county-labels %))
       (tc/group-by :county)
@@ -313,7 +317,7 @@
 ;; ## Disability Type
 
 {::clerk/visibility {:result :hide}}
-(def DS_type (-> file-dis-type-f4005 make-ds))
+(def DS_type (-> (get files 'file-dis-type-f4005) make-ds))
 
 (defn aggregate-people-type [ds sex]
   (-> ds
@@ -441,7 +445,7 @@
 {::clerk/visibility {:result :hide}}
 
 (defn DS_type_age_restricted [age]
-  (-> file-dis-type-age-f4006
+  (-> (get files 'file-dis-type-age-f4006)
       make-ds
       (tc/map-columns :age [:SingleYearofAge] #(agestr->int %))
       (tc/drop-rows (comp #(> % age) :age))))
@@ -512,12 +516,12 @@
 ;; ## Employment
 {::clerk/visibility {:result :hide}}
 (def DS_unemployment_sex
-  (-> file-unemployment-age-f4067
+  (-> (get files 'file-unemployment-age-f4067)
       make-ds
       (tc/drop-rows (comp #(= "Both sexes" %) :Sex))))
 
 (def DS_unemployment_both
-  (-> file-unemployment-age-f4067
+  (-> (get files 'file-unemployment-age-f4067)
       make-ds
       (tc/drop-rows (comp #(= "Male" %) :Sex))
       (tc/drop-rows (comp #(= "Female" %) :Sex))))
@@ -576,7 +580,7 @@
   "\n"
   (rest
    (for [occupation (:IntermediateOccupationalGroup
-                     (->  file-total-occupation-both-f4049 make-ds))]
+                     (->  (get files 'file-total-occupation-both-f4049) make-ds))]
      (str "* " occupation)))))
 
 
@@ -590,7 +594,7 @@
  (hc/xform
   ht/bar-chart
   :TITLE "Employment Types for Disability Great Extent"
-  :DATA (occupations file-total-occupation-both-f4049)
+  :DATA (occupations (get files 'file-total-occupation-both-f4049))
   :Y "IntermediateOccupationalGroup" :YTYPE "nominal" :YSORT "-x" :YTITLE nil
   :X "VALUE" :XTPYE "quantitative"
   :HEIGHT 600
@@ -601,7 +605,7 @@
 (clerk/vl
  {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
   :title "Employment Types for Disability Great Extent by Sex"
-  :data {:values (occupations file-total-occupation-sex-f4049)}
+  :data {:values (occupations (get files 'file-total-occupation-sex-f4049))}
   :mark {:type "bar" :tooltip true}
   :hight 400
   :width 480
@@ -616,7 +620,7 @@
 ;; #### Unemployment Rate People disabiled to a great extent
 
 (clerk/table
- (-> file-unemployment-people-f4058
+ (-> (get files 'file-unemployment-people-f4058)
      make-ds
      (tc/select-columns [:StatisticLabel :Sex :UNIT :VALUE])))
 
@@ -691,7 +695,7 @@
 (clerk/vl
  {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
   :title "Number in Private Households"
-  :data {:values (-> file-households-general-f4054
+  :data {:values (-> (get files 'file-households-general-f4054)
                      make-ds
                      (tc/drop-rows #(= "Both sexes" (% :Sex)))
                      (tc/rows :as-maps))}
@@ -705,7 +709,7 @@
                      :scale {:scheme "paired"}}}})
 
 (clerk/table
- (-> file-households-general-f4054
+ (-> (get files 'file-households-general-f4054)
      make-ds
      (tc/select-rows #(= "Both sexes" (% :Sex)))
      (tc/select-columns [:StatisticLabel
@@ -726,7 +730,7 @@
  (hc/xform
   ht/grouped-bar-chart
   :DATA
-  (-> file-households-type-f4054
+  (-> (get files 'file-households-type-f4054)
       make-ds
       (tc/select-rows #(= "Both sexes" (% :Sex)))
       (tc/rows :as-maps))
@@ -736,7 +740,7 @@
   :COLUMN :Extentofdifficultyorcondition :COLTYPE "nominal"))
 
 (clerk/table
- (-> file-households-type-f4054
+ (-> (get files 'file-households-type-f4054)
      make-ds
      (tc/select-rows #(= "Great Extent" (% :Extentofdifficultyorcondition)))
      (tc/select-rows #(= "Both sexes" (% :Sex)))
@@ -748,7 +752,7 @@
 (clerk/vl
  {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
   :title "Disability to a Great Extent Household Type/Sex"
-  :data {:values (-> file-households-type-f4054
+  :data {:values (-> (get files 'file-households-type-f4054)
                      make-ds
                      (tc/select-rows #(= "Great Extent" (% :Extentofdifficultyorcondition)))
                      (tc/drop-rows #(= "Both sexes" (% :Sex)))
@@ -770,7 +774,7 @@
 (clerk/vl
  {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
   :title "Intellectual Disability to a Great Extent Household Type/Sex"
-  :data {:values (-> file-households-ID-f4054
+  :data {:values (-> (get files 'file-households-ID-f4054)
                      make-ds
                      (tc/select-rows #(= "Great Extent" (% :Extentofdifficultyorcondition)))
                      (tc/drop-rows #(= "Both sexes" (% :Sex)))
@@ -789,7 +793,7 @@
 (clerk/vl
  {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
   :title "Home Mobility Difficulty to a Great Extent Household Type/Sex"
-  :data {:values (-> file-households-mobility-f4054
+  :data {:values (-> (get files 'file-households-mobility-f4054)
                      make-ds
                      (tc/select-rows #(= "Great Extent" (% :Extentofdifficultyorcondition)))
                      (tc/drop-rows #(= "Both sexes" (% :Sex)))
