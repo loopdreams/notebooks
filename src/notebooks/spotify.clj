@@ -11,9 +11,9 @@
    [nextjournal.clerk :as clerk]
    [tablecloth.api :as tc]))
 
-^{::clerk/visibility {:code :hide :result :hide}}
-(swap! hc/_defaults assoc :BACKGROUND "white")
 
+^{::clerk/visibility {:result :hide}}
+(swap! hc/_defaults assoc :BACKGROUND "white")
 
 ^{::clerk/visibility {:code :hide :result :hide}}
 (def input-file "resources/data/spotify_2023/spotify-2023.csv")

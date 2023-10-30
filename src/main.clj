@@ -1,5 +1,11 @@
 (ns main
-  (:require [nextjournal.clerk :as clerk]))
+  (:require [nextjournal.clerk :as clerk]
+            [aerial.hanami.common :as hc]))
+
+;; Hanami Defaults
+^{::clerk/visibility {:result :hide}}
+(swap! hc/_defaults assoc :BACKGROUND "white")
+
 
 ;; Start clerk server
 (comment

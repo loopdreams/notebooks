@@ -18,6 +18,8 @@
 ;;
 ;; There are also complementary files containing the same info by Country, City, etc.
 
+^{::clerk/visibility {:result :hide}}
+(swap! hc/_defaults assoc :BACKGROUND "white")
 
 ^{::clerk/visibility {:result :hide}}
 (def global_temperatures_file "resources/data/global_temperatures/GlobalTemperatures.csv")
@@ -273,46 +275,46 @@
   :DATA monthly-DS
   :X "month" :XTYPE "nominal" :XSORT months
   :Y "LandAverageTemperature"
-  :COLOR ht/default-color :CFIELD "year" :CTYP "temporal"
+  :COLOR ht/default-color :CFIELD "year" :CTYPE "temporal"
+  :CSCALE {:scheme {:name "goldred" :extent [0.1 1.5]}}
   :WIDTH 600))
 
 ;; Taking only the years since 1900 (blue line is most recent year, 2015):
 
 
-(defn annual-avg-month-1900 [ds month]
+(defn annual-avg-month-1820 [ds month]
   (-> ds
       (tc/map-columns :month [:dt] #(jt/month %))
       (tc/map-columns :year [:dt] #(str (jt/year %)))
-      (tc/select-rows (comp #(< 1899 (parse-long %)) :year))
+      (tc/select-rows (comp #(< 1820 (parse-long %)) :year))
       (tc/select-rows (comp #(= (str %) month) :month))
       (tc/map-columns :month [:month] #(str/capitalize (str %)))
       (tc/select-columns [:date :month :LandAverageTemperature :year])
       (tc/rows :as-maps)))
 
-(def monthly-DS-1900
+(def monthly-DS-1820
   (reduce concat
-          (map #(annual-avg-month-1900 DS_A %) (map str/upper-case months))))
+          (map #(annual-avg-month-1820 DS_A %) (map str/upper-case months))))
 
-(def monthly-DS-1900-2014
-  (remove #(= (:year %) "2015") monthly-DS-1900))
+(def monthly-DS-1820-2014
+  (remove #(= (:year %) "2015") monthly-DS-1820))
 
 (def monthly-DS-2015
-  (filter #(= (:year %) "2015") monthly-DS-1900))
+  (filter #(= (:year %) "2015") monthly-DS-1820))
 
-;; TODO try render legend as scale
 ;;
 (clerk/vl
  (hc/xform
   ht/layer-chart
   :LAYER
-  [
-   (hc/xform
+  [(hc/xform
     ht/line-chart
-    :DATA monthly-DS-1900-2014
+    :DATA monthly-DS-1820-2014
     :X "month" :XTYPE "nominal" :XSORT months
     :Y "LandAverageTemperature"
-    :COLOR {:field "year"
-            :scale {:scheme "lightgreyred"}}
+    :OPACITY 0.6
+    :COLOR ht/default-color :CFIELD "year" :CTYPE "temporal"
+    :CSCALE {:scheme {:name "bluegreen" :extent [0.1 1]}}
     :POINT true
     :WIDTH 600)
    (hc/xform
@@ -321,6 +323,7 @@
     :X "month" :XTYPE "nominal" :XSORT months
     :Y "LandAverageTemperature"
     :MCOLOR "blue"
+    :MSIZE 3
     :POINT true
     :WIDTH 600)]))
 
@@ -545,9 +548,11 @@
   :encoding {:color {:field "AverageTemperature" :type "quantitative"}}
   :projection {:type "mercator"}})
 
-;; ### Hottest Countries by Year (Highest monthly average recorded)
+;; ### Hottest and Coldest Countries by Year (Highest/Lowest monthly average recorded)
+;;
+;; There is a fairly noticable trend of the coldest country (Greenland) warming at
+;; a quicker rate since around 1995.
 
-;; TODO Try put these side by side
 ^{::clerk/visibility {:result :hide}}
 (def hottest-countries-year
   (-> DS_country
@@ -559,16 +564,6 @@
       (tc/rename-columns {:$group-name :year})
       (tc/drop-missing)))
 
-(clerk/vl
- (hc/xform
-  ht/bar-chart
-  :DATA (-> hottest-countries-year (tc/rows :as-maps))
-  :X "highest-avg-temp" :XTYPE "quantitative"
-  :Y "year" :YTYPE "temporal"
-  :COLOR "country"
-  :HEIGHT 2000))
-
-;; ### Coldest Countries by Year (Lowest average recorded)
 
 
 ^{::clerk/visibility {:result :hide}}
@@ -586,12 +581,36 @@
 
 (clerk/vl
  (hc/xform
-  ht/bar-chart
-  :DATA (-> coldest-countries-year (tc/rows :as-maps))
-  :X "lowest-avg-temp" :XTYPE "quantitative"
-  :Y "year" :YTYPE "temporal"
-  :COLOR "country"
-  :HEIGHT 2000))
+  ht/hconcat-chart
+  :HCONCAT
+  [(hc/xform
+    ht/bar-chart
+    :DATA (-> coldest-countries-year (tc/rows :as-maps))
+    :TITLE "<- Lowest Avg. Temperature"
+    :X "lowest-avg-temp" :XTYPE "quantitative" :XTITLE nil
+    :Y "year" :YTYPE "temporal" :YAXIS nil
+    :COLOR "country"
+    :HEIGHT 2000
+    :WIDTH 250)
+   {:$schema "https://vega.github.io/schema/vega-lite/v5.json"
+    :data {:values (-> hottest-countries-year (tc/rows :as-maps))}
+    :width 10
+    :height 2000
+    :view {:stroke nil}
+    :mark {:type "text"
+           :align "center"}
+    :encoding {:y {:field "year"
+                   :type "temporal"
+                   :title ""}}}
+   (hc/xform
+    ht/bar-chart
+    :DATA (-> hottest-countries-year (tc/rows :as-maps))
+    :TITLE "Highest Avg. Temperature ->"
+    :X "highest-avg-temp" :XTYPE "quantitative" :XTITLE nil
+    :Y "year" :YTYPE "temporal" :YAXIS nil
+    :COLOR "country"
+    :WIDTH 250
+    :HEIGHT 2000)]))
 
 ;; ### Ireland
 
