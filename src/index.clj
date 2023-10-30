@@ -13,8 +13,11 @@
        [:div.font-bold.block.group-hover:text-indigo-600 title]
        [:div.text-xs.text-gray-500.group-hover:text-indigo-600.leading-normal description]]])
    [{:title "Most Streamed Spotify Songs 2023"
-     :path "notebooks/spotify.clj"
+     :path "src/notebooks/spotify/index.html"
      :description "Looking into some 2023 spotify stats using a data file from Kaggle"}
     {:title "Global Temperatures to 2015"
-     :path "notebooks/global_temp.clj"
-     :description "Looking into some 2023 spotify stats using a data file from Kaggle"}])))
+     :path "src/notebooks/global_temp/index.html"
+     :description "Global temperatures from 1750 - 2015"}
+    {:title "Irish Census 2022: Disability"
+     :path "src/notebooks/disability_ireland/index.html"
+     :description "Results from the Irish Census on 'Disability to a Great Extent"}])))
